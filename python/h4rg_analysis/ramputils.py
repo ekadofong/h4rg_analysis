@@ -14,12 +14,15 @@ def utr_rdt (yvec, axis=0):
     return t1/t2
 
 
-def utr_expectedflux ( cube, start=None, stop=None, bmethod='naive' ):    
+def utr_expectedflux ( cube, start=None, stop=None, bmethod='naive', return_param=True ):    
     if bmethod == 'naive':
-        b = cube[:10].mean(axis=0)
+        b = cube[:10].mean(axis=0)[start:stop,start:stop]
         
     rdt_estimate = utr_rdt ( cube[:,start:stop,start:stop] )
     xs = np.arange(cube.shape[0])
-    expected_flux = (rdt_estimate[np.newaxis,start:stop,start:stop] * xs[:,np.newaxis,np.newaxis]) 
-    expected_flux += b[np.newaxis,start:stop,start:stop]
-    return expected_flux
+    expected_flux = (rdt_estimate[np.newaxis] * xs[:,np.newaxis,np.newaxis]) 
+    expected_flux += b[np.newaxis]
+    if return_param:
+        return expected_flux, (rdt_estimate, b)
+    else:
+        return expected_flux
