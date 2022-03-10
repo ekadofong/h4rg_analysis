@@ -129,3 +129,8 @@ dmypy.json
 .pyre/
 
 ics_hxutils
+figures
+figures/column_variation.png
+figures/utr_PFJB02402223_1000-250.png
+figures/utr_PFJB02402223_1810-3394.png
+figures/utr_PFJB02402223_2000-2000.png
