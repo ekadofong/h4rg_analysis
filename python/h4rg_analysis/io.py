@@ -32,16 +32,59 @@ def irp_sliced ( ramp, r0=0, r1=-1, slicey=None, slicex=None ):
 def irpStack_memmap ( ramp, r0=0, r1=-1, filename=None ):
     if filename is None:
         tempdir = mkdtemp ()
-        filename = '/'.join([tempdir, 'ramptemp.dat'])
+        filename = '/'.join([tempdir, 'irptemp.dat'])
         
     r0 = ramp._readIdxToAbsoluteIdx ( r0 )
-    r1 = ramp._readIdxToAbsoluteIdx ( r1 )
-    fp = np.memmap ( filename, dtype='u2', mode='w+', shape=(ramp.nreads, ramp.nrows, ramp.ncols ))
+    r1 = ramp._readIdxToAbsoluteIdx ( r1 )    
+    fp = np.memmap ( filename, dtype='u2', mode='w+', shape=(r1-r0+1, ramp.nrows, ramp.ncols ))
     for r_i in np.arange(r0, r1+1):
         n = ramp._readIdxToFITSIdx ( r_i )
         extname = f'REF_{n}'
         irpImage = ramp.fits[extname].read ()
         irpImage = hxramp.constructFullIrp(irpImage, ramp.nchan, refPix=ramp.interleaveOffset)
         fp[r_i] = irpImage
+    fp.flush ()
+    return fp
+
+def dataStack_memmap ( ramp, r0=0, r1=-1, filename=None ):
+    if filename is None:
+        tempdir = mkdtemp ()
+        filename = '/'.join([tempdir, 'datatemp.dat'])
+        
+    r0 = ramp._readIdxToAbsoluteIdx ( r0 )
+    r1 = ramp._readIdxToAbsoluteIdx ( r1 )
+    fp = np.memmap ( filename, dtype='u2', mode='w+', shape=(r1-r0+1, ramp.nrows, ramp.ncols ))    
+    for r_i in np.arange(r0, r1+1):
+        n = ramp._readIdxToFITSIdx ( r_i )
+        extname = f'IMAGE_{n}'
+        dataImage = ramp.fits[extname].read ()
+        fp[r_i] = dataImage
+    fp.flush ()
+    return fp
+
+
+def corrStack_memmap ( ramp, r0=0, r1=-1, filename=None):
+    if filename is None:
+        tempdir = mkdtemp ()
+        filename = '/'.join([tempdir, 'corrtemp.dat'])
+        
+    r0 = ramp._readIdxToAbsoluteIdx ( r0 )
+    r1 = ramp._readIdxToAbsoluteIdx ( r1 )
+    fp = np.memmap ( filename, dtype='u2', mode='w+', shape=(r1-r0+1, ramp.nrows, ramp.ncols ))        
+    
+    for r_i in np.arange(r0, r1+1):
+        n = ramp._readIdxToFITSIdx ( r_i )
+        data_extname = f'IMAGE_{n}'
+        dataImage = ramp.fits[data_extname].read ()
+        
+        try:
+            ref_extname = f'REF_{n}'
+            irpImage = ramp.fits[ref_extname].read ()
+            irpImage = hxramp.constructFullIrp(irpImage, ramp.nchan, refPix=ramp.interleaveOffset)
+            corrImage = dataImage - irpImage
+        except: # \\ no IRP frame
+            corrImage = dataImage
+        
+        fp[r_i] = corrImage
     fp.flush ()
     return fp
