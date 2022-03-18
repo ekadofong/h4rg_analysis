@@ -1,4 +1,4 @@
-from tempfile import mkdtemp
+import tempfile
 import numpy as np
 from ics.hxutils import hxramp
 
@@ -30,9 +30,8 @@ def irp_sliced ( ramp, r0=0, r1=-1, slicey=None, slicex=None ):
     return cimage
 
 def irpStack_memmap ( ramp, r0=0, r1=-1, filename=None ):
-    if filename is None:
-        tempdir = mkdtemp ()
-        filename = '/'.join([tempdir, 'irptemp.dat'])
+    if filename is None:        
+        filename = tempfile.NamedTemporaryFile()
         
     r0 = ramp._readIdxToAbsoluteIdx ( r0 )
     r1 = ramp._readIdxToAbsoluteIdx ( r1 )    
@@ -44,12 +43,11 @@ def irpStack_memmap ( ramp, r0=0, r1=-1, filename=None ):
         irpImage = hxramp.constructFullIrp(irpImage, ramp.nchan, refPix=ramp.interleaveOffset)
         fp[r_i] = irpImage
     fp.flush ()
-    return fp
+    return fp, filename
 
 def dataStack_memmap ( ramp, r0=0, r1=-1, filename=None ):
     if filename is None:
-        tempdir = mkdtemp ()
-        filename = '/'.join([tempdir, 'datatemp.dat'])
+        filename = tempfile.NamedTemporaryFile()
         
     r0 = ramp._readIdxToAbsoluteIdx ( r0 )
     r1 = ramp._readIdxToAbsoluteIdx ( r1 )
@@ -60,13 +58,12 @@ def dataStack_memmap ( ramp, r0=0, r1=-1, filename=None ):
         dataImage = ramp.fits[extname].read ()
         fp[r_i] = dataImage
     fp.flush ()
-    return fp
+    return fp, filename
 
 
 def corrStack_memmap ( ramp, r0=0, r1=-1, filename=None):
     if filename is None:
-        tempdir = mkdtemp ()
-        filename = '/'.join([tempdir, 'corrtemp.dat'])
+        filename = tempfile.NamedTemporaryFile()
         
     r0 = ramp._readIdxToAbsoluteIdx ( r0 )
     r1 = ramp._readIdxToAbsoluteIdx ( r1 )
@@ -87,4 +84,4 @@ def corrStack_memmap ( ramp, r0=0, r1=-1, filename=None):
         
         fp[r_i] = corrImage
     fp.flush ()
-    return fp
+    return fp, filename
