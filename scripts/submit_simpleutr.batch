@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=do_simpleutr
 #SBATCH --cpus-per-task=1
-#SBATCH -t 0-01:10:00
-#SBATCH --mem-per-cpu=10g
-#SBATCH --array=1
+#SBATCH -t 0-02:20:00
+#SBATCH --mem-per-cpu=3g
+#SBATCH --array=0-8
 
 
 source setup.sh
