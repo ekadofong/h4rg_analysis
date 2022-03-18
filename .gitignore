@@ -131,3 +131,5 @@ dmypy.json
 ics_hxutils
 figures
 data/
+notebooks/PFJB02402223_irp.temp
+slurm*out
