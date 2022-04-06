@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import colors
 from scipy import stats
 from ics.hxutils import hxramp
 from h4rg_analysis import ramputils, io, plot
@@ -10,7 +11,7 @@ from h4rg_analysis import ramputils, io, plot
 plt.rcParams['figure.figsize'] = (6,6)
 plt.rcParams['font.size'] = 14
 dtypes_d = ['IRP','data','corr']
-colors_d = ['grey','tab:red','b']
+colors_d = ['#666666','tab:red','b']
 
 # \\ lab-decided values
 bestbaselines = open ('../data/paths/best_ever_baseline_darks_8_21_2022.txt', 'r').read().splitlines()[1:]
@@ -29,11 +30,15 @@ def load_variancemaps ( ramp_id, Ny=4096, Nx=4096 ):
     var = np.zeros([3, Ny, Nx])
     for ddx in range(3):
         data_type = dtypes_d[ddx]
+        
         var_path = f'../data/output/{ramp_id}_{data_type}_S0-E-1_var.npy'    
-        var[ddx] = np.load(var_path)
+        if os.path.exists(var_path):
+            var[ddx] = np.load(var_path)
+        else:
+            var[ddx] = np.NaN
     return var
 
-def mk_varhists ( var, bins=None, ax=None, upper=None):
+def mk_varhists ( var, bins=None, ax=None, upper=None, show_legend=True):
     if bins is None:
         bins = np.linspace(10.,60.,300)
     if ax is None:
@@ -65,6 +70,27 @@ def mk_varhists ( var, bins=None, ax=None, upper=None):
         
     ax.set_xlabel ( r'$\sigma$ (e)')
     ax.set_ylabel ('N')
-    ax.legend (loc='upper left', frameon=False)
+    if show_legend:
+        for ddx in range(3):
+            ax.text ( 0.025, 0.95 - ddx*.075, dtypes_d[ddx], color=colors_d[ddx], va='top',
+                     transform=ax.transAxes )
     #ax.set_xscale('log')    
     return ax, stats_arr
+
+def load_ratemap ( ramp_id, readtime=None, ax=None ):
+    '''
+    Load estimated up-the-ramp rate in e / sec
+    '''
+    utr_path = f'../data/output/{ramp_id}_corr_S0-E-1_utrparam.npy' 
+    utrparam = np.load(utr_path)
+    if readtime is None:
+        readtime = 10.85705 # \\ XXX seconds, default for bestbaselines (ramp.header  ()['W_FRMTIM'])
+    measrate_e = utrparam[0] / readtime  * gain
+    return measrate_e
+
+def mk_utrrates ( measrate_e, ax=None ):
+    if ax is None:
+        ax = plt.subplot(111)
+        
+    im=ax.imshow(measrate_e, vmin=1e-3, vmax=1., norm=colors.LogNorm() )
+    plt.colorbar(im, ax=ax, label=r'R (e/s)')
