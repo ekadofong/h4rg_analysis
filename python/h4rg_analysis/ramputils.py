@@ -44,31 +44,65 @@ def recast (colmed, dt):
         recast[dt==dindex] = colmed[idx]    
     return recast
 
-def correct_IRPpcv (irp1, irp0):
+def correct_IRPpcv (irp):
     '''
     Correct the per-channel variation (vertical stridation) in the IRP frames.
     There are 32 channels across the frame (128 pix each)
     '''
-    irpdiff = irp1.astype(float)-irp0.astype(float)
-    xs = np.arange(irpdiff.shape[1])
+    irpf = irp.astype(float)
+    xs = np.arange(irpf.shape[1])
     
     bins = np.arange(0,xs.max() + 2, 128)
     midpts = 0.5*(bins[1:]+bins[:-1])
     dt = np.digitize (xs, bins)
     
     # \\ take an initial per-channel median
-    rowmed = np.median ( irpdiff, axis=0 )
+    rowmed = np.median ( irpf, axis=0 )
     colmed = ndimage.median ( rowmed, labels=dt, index=np.unique(dt) )
     recrow = recast ( colmed, dt )
     
     # \\ sigma clip @ 4 sigma and remake median
     rowdiff = rowmed - recrow
     sclip = stats.sigmaclip(rowdiff)
-    cpd_diff = irpdiff.copy ()
+    cpd_diff = irpf.copy ()
     cpd_diff[:,(rowdiff>sclip.upper)|(rowdiff<sclip.lower)] = np.NaN
     cpd_rowmed = np.nanmedian(cpd_diff, axis=0)
     cpd_colmed = ndimage.median ( cpd_rowmed, labels=dt, index=np.unique(dt) )    
     cpd_recast = recast ( cpd_colmed, dt)
-    normalized = np.ones(irpdiff.shape, dtype=float)*cpd_recast
+    normalized = np.ones(irpf.shape, dtype=float)*cpd_recast
     
-    return irpdiff - normalized
+    return irpf - normalized, cpd_colmed
+
+def roughclip ( img, sigma=3., fill=np.NaN ):
+    sigclip = stats.sigmaclip ( img[2], low=sigma, high=sigma)
+    lower = sigclip.lower
+    upper = sigclip.upper
+    mask = (img>upper)|(img<lower)
+    return np.where(mask, fill, img)
+
+def flat_statistics ( cube, gain=1., readtime=1., nbins=20, maxrate=1. ):
+    diff = np.diff(cube.astype(float), axis=0)
+    clipped_diff = roughclip (diff)
+    Nreads=np.logspace(1, np.log10(cube.shape[0]), nbins).astype(int)
+    statarr = np.zeros([2, nbins, *clipped_diff.shape[1:]])
+    for idx,N in enumerate(Nreads):
+        mrate = np.nanmean(clipped_diff[:N], axis=0) # ADU/read
+        mrate *= gain / readtime # ADU / read * e / ADU * read / s
+        srate = np.nanstd(clipped_diff[:N], axis=0) # ADU/read
+        srate *= gain / readtime
+        statarr[0,idx] = mrate
+        statarr[1,idx] = srate  
+        
+    if maxrate is not None:
+        clipper = abs(statarr[0,-1]) > maxrate
+        statarr[0,:,clipper] = np.NaN
+        statarr[1,:,clipper] = np.NaN
+    return statarr  
+
+def ps2D ( img ):
+    from turbustat.statistics import pspec
+    
+    ps2D = np.power(np.fft.fftshift ( pspec.rfft_to_fft(img) ),2.)    
+    yfreqs = np.fft.fftshift(np.fft.fftfreq(img.shape[0]))
+    xfreqs = np.fft.fftshift(np.fft.fftfreq(img.shape[1]))
+    return ps2D, xfreqs, yfreqs
