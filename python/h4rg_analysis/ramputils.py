@@ -29,8 +29,8 @@ def utr_expectedflux ( cube, bmethod='naive', return_param=True ):
     
     s = np.sqrt ( (ss_yy - ss_xy**2 / ss_xx)/(cube.shape[0]- 2.) )
     
-    se_a = s * np.sqrt ( 1./cube.shape[0] * xs.mean()**2 / ss_xx )
-    se_b = s / np.sqrt(ss_xx)
+    se_b = s * np.sqrt ( 1./cube.shape[0] * xs.mean()**2 / ss_xx )
+    se_a = s / np.sqrt(ss_xx)
     
     expected_flux += b[np.newaxis]
     if return_param:
@@ -52,7 +52,7 @@ def correct_IRPpcv (irp):
     irpf = irp.astype(float)
     xs = np.arange(irpf.shape[1])
     
-    bins = np.arange(0,xs.max() + 2, 128)
+    bins = np.arange(0,xs.max() + 1, 128)
     midpts = 0.5*(bins[1:]+bins[:-1])
     dt = np.digitize (xs, bins)
     
@@ -72,6 +72,31 @@ def correct_IRPpcv (irp):
     normalized = np.ones(irpf.shape, dtype=float)*cpd_recast
     
     return irpf - normalized, cpd_colmed
+
+def colsub ( arr, colwidth=128):
+    arrf = arr.astype(float)
+    xs = np.arange(arrf.shape[1])
+    
+    bins = np.arange(0,xs.max() + 1, colwidth)
+    midpts = 0.5*(bins[1:]+bins[:-1])
+    dt = np.digitize (xs, bins)
+    
+    # \\ take an initial per-channel median
+    rowmed = np.median ( arrf, axis=0 )
+    colmed = ndimage.median ( rowmed, labels=dt, index=np.unique(dt) )
+    recrow = recast ( colmed, dt )
+    
+    # \\ sigma clip @ 4 sigma and remake median
+    rowdiff = rowmed - recrow
+    sclip = stats.sigmaclip(rowdiff)
+    cpd_diff = arrf.copy ()
+    cpd_diff[:,(rowdiff>sclip.upper)|(rowdiff<sclip.lower)] = np.NaN
+    cpd_rowmed = np.nanmedian(cpd_diff, axis=0)
+    cpd_colmed = ndimage.median ( cpd_rowmed, labels=dt, index=np.unique(dt) )    
+    cpd_recast = recast ( cpd_colmed, dt)
+    normalized = np.ones(arrf.shape, dtype=float)*cpd_recast
+    
+    return arrf - normalized, cpd_colmed    
 
 def roughclip ( img, sigma=3., fill=np.NaN ):
     sigclip = stats.sigmaclip ( img[2], low=sigma, high=sigma)
@@ -106,3 +131,54 @@ def ps2D ( img ):
     yfreqs = np.fft.fftshift(np.fft.fftfreq(img.shape[0]))
     xfreqs = np.fft.fftshift(np.fft.fftfreq(img.shape[1]))
     return ps2D, xfreqs, yfreqs
+
+
+def compute_uncertainties (cubeA, cubeB, xs=None, gain=None, exptime=None, expected=None):
+    '''
+    Compute statistics for difference in OLS rate for 2 ramps
+    rn_arr[0] = RMS difference between rampA and rampB
+    rn_arr[1] = RMS difference between rampA and expected rate (only meaningful for fake data)
+    rn_arr[2] = OLS SE on slope estimate of rampA
+    rn_arr[3] = mean rate of rampA
+    rn_arr[3] = median rate of rampA
+    (All quantities are sigmaclipped)
+    '''
+    if xs is None:
+        xs = np.logspace(np.log10(5.),np.log10(cubeA.shape[0]-1),20).astype(int)
+    if gain is None:
+        print('Caution! Gain=1')    
+        gain = 1.
+    if exptime is None:
+        print('Caution! Exptime=1 sec')
+        exptime = 1.
+    if expected is None:
+        expected = np.NaN
+    unit_conversion = gain / exptime # e/ADU / s 
+    
+    rn_arr = np.zeros([5,xs.size])
+    for idx, read_idx in enumerate(xs):
+        ca = cubeA[:(read_idx+1)].astype(float)
+        cb = cubeB[:(read_idx+1)].astype(float)
+        _,rhatA,rhatA_se = utr_expectedflux ( ca )
+        _,rhatB,rhatB_se = utr_expectedflux ( cb )
+        _rdiff = (rhatA[0] - rhatB[0]) * unit_conversion # ADU/read * e/ADU * read/s
+        clipper = stats.sigmaclip(_rdiff, low=3, high=3)    
+        rdiff = np.where((_rdiff<clipper.upper)&(_rdiff>clipper.lower), _rdiff, np.NaN)
+        detarea = 2.*np.isfinite(rdiff).sum()
+        rate_noise = np.sqrt( np.nansum(rdiff**2) / detarea )
+        rn_arr[0,idx] = rate_noise
+        
+        ediff = (rhatA[0] - expected) * unit_conversion # ADU/read * e/ADU * read/s
+        eclipper = stats.sigmaclip(ediff, low=3, high=3)
+        ediff = np.where((ediff<eclipper.upper)&(ediff>eclipper.lower), ediff, np.NaN)
+        rn_arr[1,idx] = np.sqrt ( np.nansum(ediff**2) / (2.*np.isfinite(ediff).sum()) )
+        
+
+        se = np.where((_rdiff<clipper.upper)&(_rdiff>clipper.lower), rhatB_se, np.NaN)
+        rn_arr[2,idx] = np.nanmedian(se[0])   
+        rclipper = stats.sigmaclip(rhatA[0], low=3,high=3)
+        mask = (_rdiff<clipper.upper)&(_rdiff>clipper.lower) #(rhatA[0] < rclipper.upper )&( rhatA[0] > rclipper.lower )
+        rn_arr[3,idx] = np.nanmean(np.where(mask, rhatA[0], np.NaN)) * unit_conversion
+        rn_arr[4,idx] = np.nanmedian(np.where(mask, rhatA[0], np.NaN)) * unit_conversion
+        
+    return xs, rn_arr

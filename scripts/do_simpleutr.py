@@ -126,7 +126,5 @@ if 'SLURM_ARRAY_TASK_ID' in os.environ.keys():
         kwargs = {'tag':tag,'total_start':total_start}
         # if ramp.interleaveOffset > 0:
         #     singleton ( ramp, 'IRP', **kwargs)
-        # singleton ( ramp, 'data',    **kwargs)
+        singleton ( ramp, 'data',    **kwargs)
         singleton ( ramp, 'corr',    **kwargs)
-
-        

@@ -94,3 +94,107 @@ def mk_utrrates ( measrate_e, ax=None ):
         
     im=ax.imshow(measrate_e, vmin=1e-3, vmax=1., norm=colors.LogNorm() )
     plt.colorbar(im, ax=ax, label=r'R (e/s)')
+    
+def mk_statarrviz (statarr, Nreads, expected_dc=None ):
+    fig, axarr = plt.subplots(1,2,figsize=(12,5))
+    ax = axarr[1]
+    for n in np.random.randint(0, statarr[0,0].size, 100):
+        ypix, xpix = np.unravel_index ( n, statarr.shape[2:] )
+        ax.plot(Nreads, statarr[1,:,ypix,xpix] / np.sqrt(Nreads), color='grey', alpha=0.3 )
+        axarr[0].plot(Nreads, statarr[0,:,ypix,xpix], color='grey', alpha=0.3)
+        
+
+    xs = np.logspace(np.log10(Nreads.min()), np.log10(Nreads.max()), 45)
+    mstart = np.nanmean(statarr[1,0]/np.sqrt(Nreads[0]))
+    ys = 1./np.sqrt(xs)
+    ys *= mstart / ys[0]
+    ax.plot(xs,ys, color='k', lw=3, ls='--')
+    if expected_dc is not None:
+        axarr[0].axhline(expected_dc, color='k', ls='--', lw=3)
+
+    mm =  np.nanmean(statarr[0],axis=(1,2))
+    msd = np.nanmean(statarr[1],axis=(1,2))
+    sd_mm = np.nanstd(statarr[0],axis=(1,2))
+    ax.plot ( Nreads, msd / np.sqrt(Nreads), color='lime', lw=3 )
+    axarr[0].plot(Nreads, mm, color='r', lw=3 )
+
+    #ax.axhline(np.interp(100, Nreads, msd)/np.sqrt(100), color='r', ls='--')
+
+
+    axarr[0].plot ( Nreads, msd/np.sqrt(Nreads), color='lime')
+    axarr[0].plot ( Nreads, -msd/np.sqrt(Nreads), color='lime')
+    axarr[0].plot ( Nreads, sd_mm, color='r')
+    axarr[0].plot ( Nreads, -sd_mm, color='r')
+    axarr[1].plot ( Nreads, sd_mm, color='r', )
+
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlim(xs.min(),xs.max())
+    axarr[0].set_xlim(xs.min(),xs.max())
+    ax.set_xlabel(r'N$_{\rm reads}$')
+    ax.set_ylabel(r'SE($R$) (e/s)')
+    axarr[0].set_ylim(-1.,1.)
+    axarr[1].set_ylim(0.01, 2.)
+    axarr[0].set_xlabel(ax.get_xlabel())
+    axarr[0].set_ylabel(r'$\bar R$ (e/s)')
+    plt.tight_layout ()
+    
+def print_r2rstats ( rateA, rdiff, exptime, nreads, gain ):
+    unit_conversion = gain / exptime
+    clipped_rate = stats.sigmaclip(rateA)
+    shot_noise = np.sqrt(abs(np.median(clipped_rate.clipped * unit_conversion)) * exptime * nreads)
+    print('Median rate: %.4f e/s' % np.median(clipped_rate.clipped * unit_conversion))
+
+    rdiff_phys = rdiff * unit_conversion
+    sclip = stats.sigmaclip(rdiff_phys)
+    clipped =sclip.clipped
+    rms = np.sqrt ( np.sum(clipped**2) / (2.*float(clipped.size)))
+
+    totrms  = rms * exptime * nreads
+    print('Expected shot noise: %i e' % shot_noise)
+    print('Observed total RMS: %i e' % totrms)
+    print('SQRT[RMS^2 - shot^2] = %.2f e' % np.sqrt(totrms**2 - shot_noise**2))
+        
+
+def show_r2rdiff ( rateA, rateB, exptime, nreads, gain, colsub=1. ):
+    '''
+    Show a map of the difference in estimated signal (in e/s) for
+    two ramps, and the impact of removing a columnated structure of width
+    colsub pixels from the residual
+    '''
+    
+    unit_conversion = gain/exptime
+    
+    # \\ figure to show rates    
+    fig0, axarr = plt.subplots(1,2,figsize=(21*2/3,5))
+    plot.scaled_imshow ( rateA * unit_conversion, ax=axarr[0], label=r'$\rm R$ (e/s)' )
+    plot.scaled_imshow ( rateB * unit_conversion, ax=axarr[1],  label=r'$\rm R$ (e/s)' )    
+    plt.tight_layout ()
+    #plt.savefig('../figures/20220421_corr-medsub.png')        
+    
+    # \\ figure to show rate difference
+    rdiff = rateA - rateB
+    print_r2rstats ( rateA, rdiff, exptime, nreads, gain )
+    rdiff_mc,colmed_rdiff = ramputils.colsub ( rdiff, colsub )
+    
+    fig1, axarr = plt.subplots(1,3,figsize=(21,5))
+    plot.scaled_imshow ( rdiff * unit_conversion , ax=axarr[0], label=r'$\Delta \rm R$ (e/s)' )
+    plot.scaled_imshow ( (rdiff - rdiff_mc)*unit_conversion, ax=axarr[1],  label=r'$\Delta \rm R$ (e/s)' )
+    plot.scaled_imshow ( rdiff_mc * unit_conversion, ax=axarr[2],  label=r'$\Delta \rm R$ (e/s)')
+
+    for rd, ax in zip([rdiff, rdiff_mc], axarr[[0,2]]):
+        rdiff_phys = rd * unit_conversion
+        clipped = stats.sigmaclip(rdiff_phys).clipped
+        rms = np.sqrt ( np.sum(clipped**2) / (2.*float(clipped.size)))
+        ax.text ( 0.025, 0.975, r'$\rm RMS_{\rm clpd}=%.4f$ e/s'%rms, color='w', 
+                        transform=ax.transAxes,
+                        fontsize=18,
+                        ha='left', va='top', )
+        
+    axarr[0].set_title ( 'Rate Difference map (residual)' )
+    axarr[1].set_title ( 'Columnated model' )
+    axarr[2].set_title ( 'residual - model')
+
+    plt.tight_layout ()
+    #plt.savefig('../figures/20220421_corr-medsub.png')    
+    return fig0, fig1

@@ -91,21 +91,25 @@ def corrStack_memmap ( ramp, r0=0, r1=-1, slicey=None, slicex=None, filename=Non
         
     r0 = ramp._readIdxToAbsoluteIdx ( r0 )
     r1 = ramp._readIdxToAbsoluteIdx ( r1 )
-    fp = np.memmap ( filename, dtype='u2', mode='w+', shape=(r1-r0+1, shape_y, shape_x ))        
+    fp = np.memmap ( filename, dtype='f4', mode='w+', shape=(r1-r0+1, shape_y, shape_x ))        
     
     for r_i in np.arange(r0, r1+1):
-        n = ramp._readIdxToFITSIdx ( r_i )
-        data_extname = f'IMAGE_{n}'
-        dataImage = ramp.fits[data_extname].read ()
+        '''
+        #n = ramp._readIdxToFITSIdx ( r_i )
+        #data_extname = f'IMAGE_{n}'
+        #dataImage = ramp.dataN(r_i) #fits[data_extname].read ()
         
         try:
-            ref_extname = f'REF_{n}'
-            irpImage = ramp.fits[ref_extname].read ()
-            irpImage = hxramp.constructFullIrp(irpImage, ramp.nchan, refPix=ramp.interleaveOffset)
-            corrImage = (dataImage - irpImage)[slicey,slicex]
+            #ref_extname = f'REF_{n}'
+            #irpImage = ramp.fits[ref_extname].read ()
+            #irpImage = hxramp.constructFullIrp(irpImage, ramp.nchan, refPix=ramp.interleaveOffset)
+            irpImage = ramp.irpN(r_i)
+            corrImage = dataImage[slicey,slicex].astype(float) - irpImage[slicey,slicex].astype(float)
         except: # \\ no IRP frame
-            corrImage = dataImage[slicey,slicex]
-        
+            print('no IRP frame! (r_i=%i)' % r_i)
+            corrImage = dataImage[slicey,slicex].astype(float)
+        '''
+        corrImage = ramp.readN(r_i)[slicey,slicex] 
         fp[r_i] = corrImage
     fp.flush ()
     return fp, filename

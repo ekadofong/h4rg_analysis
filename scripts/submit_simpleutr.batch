@@ -1,10 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=TESTclobber
+#SBATCH --job-name=UTR
 #SBATCH --cpus-per-task=1
-#SBATCH -t 0-02:00:00
-#SBATCH --mem-per-cpu=3g
-#SBATCH --array=5
+#SBATCH -t 1-0:30:00
+#SBATCH --mem-per-cpu=7g
 
 
 source setup.sh
-python do_simpleutr.py
+python do_rampstats.py

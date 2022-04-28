@@ -10,7 +10,7 @@ def adjust_value ( color, factors=(1.,1.,0.8) ):
     crgb = colors.hsv_to_rgb ( chsv )  
     return crgb  
 
-def scaled_imshow ( im, ax=None, beta=0.01, colorbar=True, interpolation=None ):
+def scaled_imshow ( im, ax=None, beta=0.01, colorbar=True, interpolation=None, label=None ):
     if ax is None:
         ax = plt.subplot(111)
     vmin, vmax = np.nanquantile ( im, [beta, 1. - beta] )
@@ -19,5 +19,9 @@ def scaled_imshow ( im, ax=None, beta=0.01, colorbar=True, interpolation=None ):
     else:
         imout = ax.imshow ( im, vmin=vmin, vmax=vmax)
     if colorbar:
-        plt.colorbar ( imout, ax=ax )
+        plt.colorbar ( imout, ax=ax, label=label )
     return ax
+
+def scale_ylim(y, ax, eta=0.005):
+    lims = np.quantile(y,[eta,1.-eta])
+    ax.set_ylim(lims)
