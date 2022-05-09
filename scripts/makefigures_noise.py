@@ -142,12 +142,12 @@ def mk_statarrviz (statarr, Nreads, expected_dc=None ):
 def print_r2rstats ( rateA, rdiff, exptime, nreads, gain ):
     unit_conversion = gain / exptime
     clipped_rate = stats.sigmaclip(rateA)
-    shot_noise = np.sqrt(abs(np.median(clipped_rate.clipped * unit_conversion)) * exptime * nreads)
-    print('Median rate: %.4f e/s' % np.median(clipped_rate.clipped * unit_conversion))
+    shot_noise = np.sqrt(abs(np.median(clipped_rate.clipped )) * exptime * nreads)
+    print('Median rate: %.4f e/s' % np.median(clipped_rate.clipped ))
 
-    rdiff_phys = rdiff * unit_conversion
+    rdiff_phys = rdiff 
     sclip = stats.sigmaclip(rdiff_phys)
-    clipped =sclip.clipped
+    clipped = sclip.clipped
     rms = np.sqrt ( np.sum(clipped**2) / (2.*float(clipped.size)))
 
     totrms  = rms * exptime * nreads
@@ -167,8 +167,8 @@ def show_r2rdiff ( rateA, rateB, exptime, nreads, gain, colsub=1. ):
     
     # \\ figure to show rates    
     fig0, axarr = plt.subplots(1,2,figsize=(21*2/3,5))
-    plot.scaled_imshow ( rateA * unit_conversion, ax=axarr[0], label=r'$\rm R$ (e/s)' )
-    plot.scaled_imshow ( rateB * unit_conversion, ax=axarr[1],  label=r'$\rm R$ (e/s)' )    
+    plot.scaled_imshow ( rateA , ax=axarr[0], label=r'$\rm R$ (e/s)' )
+    plot.scaled_imshow ( rateB , ax=axarr[1],  label=r'$\rm R$ (e/s)' )    
     plt.tight_layout ()
     #plt.savefig('../figures/20220421_corr-medsub.png')        
     
@@ -176,14 +176,17 @@ def show_r2rdiff ( rateA, rateB, exptime, nreads, gain, colsub=1. ):
     rdiff = rateA - rateB
     print_r2rstats ( rateA, rdiff, exptime, nreads, gain )
     rdiff_mc,colmed_rdiff = ramputils.colsub ( rdiff, colsub )
+    print('column subtracted')
+    print_r2rstats ( rateA, rdiff_mc, exptime, nreads, gain )
+    
     
     fig1, axarr = plt.subplots(1,3,figsize=(21,5))
-    plot.scaled_imshow ( rdiff * unit_conversion , ax=axarr[0], label=r'$\Delta \rm R$ (e/s)' )
-    plot.scaled_imshow ( (rdiff - rdiff_mc)*unit_conversion, ax=axarr[1],  label=r'$\Delta \rm R$ (e/s)' )
-    plot.scaled_imshow ( rdiff_mc * unit_conversion, ax=axarr[2],  label=r'$\Delta \rm R$ (e/s)')
+    plot.scaled_imshow ( rdiff  , ax=axarr[0], label=r'$\Delta \rm R$ (e/s)' )
+    plot.scaled_imshow ( (rdiff - rdiff_mc), ax=axarr[1],  label=r'$\Delta \rm R$ (e/s)' )
+    plot.scaled_imshow ( rdiff_mc , ax=axarr[2],  label=r'$\Delta \rm R$ (e/s)')
 
     for rd, ax in zip([rdiff, rdiff_mc], axarr[[0,2]]):
-        rdiff_phys = rd * unit_conversion
+        rdiff_phys = rd 
         clipped = stats.sigmaclip(rdiff_phys).clipped
         rms = np.sqrt ( np.sum(clipped**2) / (2.*float(clipped.size)))
         ax.text ( 0.025, 0.975, r'$\rm RMS_{\rm clpd}=%.4f$ e/s'%rms, color='w', 
