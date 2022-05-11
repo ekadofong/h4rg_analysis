@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 from scipy import stats
-from ics.hxutils import hxramp
-from h4rg_analysis import ramputils, io, plot
+#from ics.hxutils import hxramp
+from phat import ramputils, io, plot
 
 
 # \\ Plotting choices
@@ -15,7 +15,7 @@ colors_d = ['#666666','tab:red','b']
 
 # \\ lab-decided values
 bestbaselines = open ('../data/paths/best_ever_baseline_darks_8_21_2022.txt', 'r').read().splitlines()[1:]
-gain = 3.2 # e-/ADU, measured by JHU for detector 18660
+gain = 2.8 # e-/ADU, measured by JHU for detector 18660
 
 def load_rampids ( jhu_paths=None ):
     if jhu_paths is None:
@@ -139,8 +139,7 @@ def mk_statarrviz (statarr, Nreads, expected_dc=None ):
     axarr[0].set_ylabel(r'$\bar R$ (e/s)')
     plt.tight_layout ()
     
-def print_r2rstats ( rateA, rdiff, exptime, nreads, gain ):
-    unit_conversion = gain / exptime
+def print_r2rstats ( rateA, rdiff, exptime, nreads ):    
     clipped_rate = stats.sigmaclip(rateA)
     shot_noise = np.sqrt(abs(np.median(clipped_rate.clipped )) * exptime * nreads)
     print('Median rate: %.4f e/s' % np.median(clipped_rate.clipped ))
@@ -156,14 +155,12 @@ def print_r2rstats ( rateA, rdiff, exptime, nreads, gain ):
     print('SQRT[RMS^2 - shot^2] = %.2f e' % np.sqrt(totrms**2 - shot_noise**2))
         
 
-def show_r2rdiff ( rateA, rateB, exptime, nreads, gain, colsub=1. ):
+def show_r2rdiff ( rateA, rateB, exptime, nreads, colsub=1. ):
     '''
     Show a map of the difference in estimated signal (in e/s) for
     two ramps, and the impact of removing a columnated structure of width
     colsub pixels from the residual
-    '''
-    
-    unit_conversion = gain/exptime
+    '''    
     
     # \\ figure to show rates    
     fig0, axarr = plt.subplots(1,2,figsize=(21*2/3,5))
@@ -174,10 +171,10 @@ def show_r2rdiff ( rateA, rateB, exptime, nreads, gain, colsub=1. ):
     
     # \\ figure to show rate difference
     rdiff = rateA - rateB
-    print_r2rstats ( rateA, rdiff, exptime, nreads, gain )
+    print_r2rstats ( rateA, rdiff, exptime, nreads, )
     rdiff_mc,colmed_rdiff = ramputils.colsub ( rdiff, colsub )
     print('column subtracted')
-    print_r2rstats ( rateA, rdiff_mc, exptime, nreads, gain )
+    print_r2rstats ( rateA, rdiff_mc, exptime, nreads, )
     
     
     fig1, axarr = plt.subplots(1,3,figsize=(21,5))
